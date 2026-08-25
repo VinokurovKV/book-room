@@ -17,17 +17,18 @@ a {
   color: inherit;
 }
 
-.nav-button {
+.nav-button.MuiButton-root {
+  color: #667085;
+  border-radius: 0;
+  text-transform: none;
   white-space: nowrap;
 }
 
-.nav-button.active {
-  color: #ffffff;
-  background-color: #1976d2;
-  border-color: #1976d2;
+.nav-button.MuiButton-root.active {
+  color: #0f9d8f;
+  border-bottom: 2px solid #0f9d8f;
 }
 
-.nav-button.active:hover {
-  background-color: #1565c0;
-  border-color: #1565c0;
+.nav-button.MuiButton-root.active:hover {
+  background-color: transparent;
 }
