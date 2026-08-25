@@ -1,0 +1,33 @@
+:root {
+  color: #172133;
+  background: #f4f6f8;
+  font-family: Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+a {
+  color: inherit;
+}
+
+.nav-button {
+  white-space: nowrap;
+}
+
+.nav-button.active {
+  color: #ffffff;
+  background-color: #1976d2;
+  border-color: #1976d2;
+}
+
+.nav-button.active:hover {
+  background-color: #1565c0;
+  border-color: #1565c0;
+}
