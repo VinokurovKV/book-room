@@ -1,15 +1,36 @@
+import { useState } from 'react';
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import { AppBar, Avatar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui/material';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { BookingsPage } from './pages/BookingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RoomPage } from './pages/RoomPage';
-import { RoomsPage } from './pages/RoomsPage';
+import { RoomsPage, type RoomsPageState } from './pages/RoomsPage';
 
 export function App() {
+  const [roomsPageState] = useState<RoomsPageState>('success');
+
   return (
     <BrowserRouter>
       <Box minHeight="100vh">
+        {roomsPageState === 'error' && (
+          <Box
+            sx={{
+              backgroundColor: '#fff08a',
+              color: '#8a5a00',
+              padding: 1,
+              textAlign: 'center',
+              fontWeight: 700,
+            }}
+          >
+            <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+              <InfoOutlinedIcon fontSize="small" />
+              <span>Соединение потеряно. Переподключение...</span>
+            </Stack>
+          </Box>
+        )}
+
         <AppBar
           position="static"
           color="inherit"
@@ -74,7 +95,7 @@ export function App() {
         <Box component="main">
           <Routes>
             <Route path="/" element={<Navigate to="/rooms" replace />} />
-            <Route path="/rooms" element={<RoomsPage />} />
+            <Route path="/rooms" element={<RoomsPage pageState={roomsPageState} />} />
             <Route path="/rooms/:roomId" element={<RoomPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
             <Route path="*" element={<NotFoundPage />} />

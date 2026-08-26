@@ -49,3 +49,23 @@ input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
   display: none;
 }
+
+.empty-state-icon,
+.error-state-icon {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state-icon {
+  color: #98a2b3;
+  background-color: #e4e9f1;
+}
+
+.error-state-icon {
+  color: #d32f2f;
+  background-color: #fde0e0;
+}
