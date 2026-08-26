@@ -1,6 +1,21 @@
 import { useState } from 'react';
-import { Box, Button, Container, Menu, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Container,
+  InputAdornment,
+  Menu,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import GroupsIcon from '@mui/icons-material/Groups';
 
 const offices = [
   {
@@ -17,11 +32,51 @@ const offices = [
   },
 ];
 
+const rooms = [
+  {
+    id: 'everest',
+    name: 'Эверест',
+    floor: '4 этаж',
+    capacity: 12,
+    timeText: 'Занята до 15:30',
+    isAvailable: false,
+  },
+  {
+    id: 'elbrus',
+    name: 'Эльбрус',
+    floor: '4 этаж',
+    capacity: 8,
+    timeText: 'Занята до 16:00',
+    isAvailable: false,
+  },
+  {
+    id: 'kazbek',
+    name: 'Казбек',
+    floor: '3 этаж',
+    capacity: 6,
+    timeText: 'Свободна весь день',
+    isAvailable: true,
+  },
+  {
+    id: 'monblan',
+    name: 'Монблан',
+    floor: '3 этаж',
+    capacity: 4,
+    timeText: 'Занята до 15:00',
+    isAvailable: true,
+  },
+];
+
 export function RoomsPage() {
   const [officeId, setOfficeId] = useState('moscow');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [date, setDate] = useState('2026-08-25');
+  const [startTime, setStartTime] = useState('15:00');
+  const [duration, setDuration] = useState('60');
+  const [capacity, setCapacity] = useState('4');
 
   const selectedOffice = offices.find((office) => office.id === officeId) || offices[0];
+  const filteredRooms = rooms.filter((room) => room.capacity >= Number(capacity));
 
   return (
     <Box>
@@ -56,15 +111,67 @@ export function RoomsPage() {
 
       <Box sx={{ backgroundColor: 'white', borderBottom: '1px solid #dce2ea' }}>
         <Container maxWidth="lg" sx={{ paddingTop: 2, paddingBottom: 2 }}>
-          <Stack direction="row" spacing={2}>
-            <TextField size="small" label="Дата" type="date" defaultValue="2026-08-25" />
-            <TextField size="small" label="Время начала" type="time" defaultValue="15:00" />
-            <TextField size="small" select label="Длительность" defaultValue="60" sx={{ minWidth: 140 }}>
+          <Stack direction="row" spacing={1.5}>
+            <TextField
+              size="small"
+              label="Дата"
+              type="date"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+              sx={{ width: 170 }}
+              InputLabelProps={{ shrink: true }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <CalendarMonthIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              size="small"
+              label="Время начала"
+              type="time"
+              value={startTime}
+              onChange={(event) => setStartTime(event.target.value)}
+              sx={{ width: 140 }}
+              inputProps={{ step: 900 }}
+              InputLabelProps={{ shrink: true }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <AccessTimeIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              size="small"
+              select
+              label="Длительность"
+              value={duration}
+              onChange={(event) => setDuration(event.target.value)}
+              sx={{ width: 150 }}
+            >
               <MenuItem value="30">30 минут</MenuItem>
               <MenuItem value="60">1 час</MenuItem>
               <MenuItem value="90">1,5 часа</MenuItem>
             </TextField>
-            <TextField size="small" select label="Вместимость" defaultValue="4" sx={{ minWidth: 160 }}>
+            <TextField
+              size="small"
+              select
+              label="Вместимость"
+              value={capacity}
+              onChange={(event) => setCapacity(event.target.value)}
+              sx={{ width: 175 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <GroupsIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            >
               <MenuItem value="2">от 2 человек</MenuItem>
               <MenuItem value="4">от 4 человек</MenuItem>
               <MenuItem value="8">от 8 человек</MenuItem>
@@ -73,10 +180,68 @@ export function RoomsPage() {
         </Container>
       </Box>
 
-      <Container maxWidth="lg" sx={{ paddingTop: 4 }}>
-        <Typography variant="h4" fontWeight={700}>
+      <Container maxWidth="lg" sx={{ paddingTop: 4, paddingBottom: 4 }}>
+        <Typography variant="h4" fontWeight={700} sx={{ marginBottom: 3 }}>
           Доступные переговорные в этом офисе
         </Typography>
+
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          {filteredRooms.map((room) => (
+            <Card key={room.id} sx={{ width: 360 }}>
+              <CardContent>
+                <Typography variant="h5" fontWeight={700}>
+                  {room.name}
+                </Typography>
+                <Typography color="text.secondary" sx={{ marginTop: 1, marginBottom: 2 }}>
+                  {room.floor}
+                </Typography>
+
+                <Stack spacing={1}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <GroupsIcon fontSize="small" color="action" />
+                    <Typography color="text.secondary">
+                      Вместимость: до {room.capacity} человек
+                    </Typography>
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <AccessTimeIcon fontSize="small" color="action" />
+                    <Typography color="text.secondary">{room.timeText}</Typography>
+                  </Stack>
+                </Stack>
+
+                <Box
+                  sx={{
+                    marginTop: 2,
+                    padding: 1.5,
+                    borderRadius: 1,
+                    backgroundColor: room.isAvailable ? '#c8f7ec' : '#e8edf3',
+                    color: room.isAvailable ? '#087f73' : '#667085',
+                    fontWeight: 700,
+                  }}
+                >
+                  {room.isAvailable
+                    ? '• Доступно на выбранное время'
+                    : '• Недоступно на выбранное время'}
+                </Box>
+
+                <Stack direction="row" spacing={2} sx={{ marginTop: 2 }}>
+                  <Button fullWidth className="card-link-button">
+                    Подробнее
+                  </Button>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    disabled={!room.isAvailable}
+                    className="card-book-button"
+                  >
+                    Забронировать
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
       </Container>
     </Box>
   );

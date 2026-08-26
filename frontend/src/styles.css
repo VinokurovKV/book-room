@@ -32,3 +32,20 @@ a {
 .nav-button.MuiButton-root.active:hover {
   background-color: transparent;
 }
+
+.card-link-button.MuiButton-root {
+  color: #0f9d8f;
+}
+
+.card-book-button.MuiButton-root {
+  background-color: #0f9d8f;
+}
+
+.card-book-button.MuiButton-root:hover {
+  background-color: #0b7f73;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  display: none;
+}
