@@ -6,15 +6,15 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { BookingsPage } from './pages/BookingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RoomPage } from './pages/RoomPage';
-import { RoomsPage, type RoomsPageState } from './pages/RoomsPage';
+import { RoomsPage } from './pages/RoomsPage';
 
 export function App() {
-  const [roomsPageState] = useState<RoomsPageState>('success');
+  const [showConnectionWarning, setShowConnectionWarning] = useState(false);
 
   return (
     <BrowserRouter>
       <Box minHeight="100vh">
-        {roomsPageState === 'error' && (
+        {showConnectionWarning && (
           <Box
             sx={{
               backgroundColor: '#fff08a',
@@ -95,7 +95,10 @@ export function App() {
         <Box component="main">
           <Routes>
             <Route path="/" element={<Navigate to="/rooms" replace />} />
-            <Route path="/rooms" element={<RoomsPage pageState={roomsPageState} />} />
+            <Route
+              path="/rooms"
+              element={<RoomsPage onConnectionErrorChange={setShowConnectionWarning} />}
+            />
             <Route path="/rooms/:roomId" element={<RoomPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
             <Route path="*" element={<NotFoundPage />} />
