@@ -20,3 +20,14 @@ export type Room = {
   office: Office;
   available?: boolean;
 };
+
+export type Booking = {
+  id: string;
+  roomId: string;
+  title: string;
+  comment: string | null;
+  startsAt: string;
+  endsAt: string;
+  room: Room;
+  office: Office;
+};

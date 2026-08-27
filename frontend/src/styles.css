@@ -45,11 +45,26 @@ a {
   background-color: #0b7f73;
 }
 
+.date-button.MuiButton-root {
+  color: #344054;
+  border-color: #d0d5dd;
+}
+
+.breadcrumbs-link {
+  color: #667085;
+  text-decoration: none;
+}
+
+.room-feature-icon {
+  color: #0f9d8f;
+}
+
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
   display: none;
 }
 
+.no-office-state-icon,
 .empty-state-icon,
 .error-state-icon {
   width: 120px;
@@ -60,6 +75,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   justify-content: center;
 }
 
+.no-office-state-icon {
+  color: #0f9d8f;
+  background-color: #c8f7ec;
+}
+
 .empty-state-icon {
   color: #98a2b3;
   background-color: #e4e9f1;
@@ -68,4 +88,28 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .error-state-icon {
   color: #d32f2f;
   background-color: #fde0e0;
+}
+
+.schedule-item {
+  position: absolute;
+  left: 64px;
+  right: 0;
+  min-height: 34px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.schedule-item-free {
+  top: 108px;
+  color: #087f73;
+  background-color: #c8f7ec;
+  border: 1px solid #0f9d8f;
+}
+
+.schedule-item-busy {
+  top: 276px;
+  color: #172133;
+  background-color: #eef2f6;
+  border: 1px solid #dce2ea;
 }

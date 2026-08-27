@@ -1,9 +1,9 @@
-import type { Office, Room } from './types';
+import type { Booking, Office, Room } from './types';
 
 const API_URL = 'http://localhost:3000/api/v1';
 
-async function request<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`);
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, options);
 
   if (!response.ok) {
     const data = (await response.json()) as { error: { message: string } };
@@ -33,4 +33,30 @@ export async function getRooms(params: {
 
   const data = await request<{ items: Room[] }>(`/rooms?${searchParams.toString()}`);
   return data.items;
+}
+
+export async function getRoom(roomId: string) {
+  return request<Room>(`/rooms/${encodeURIComponent(roomId)}`);
+}
+
+export async function createBooking(data: {
+  roomId: string;
+  title: string;
+  comment: string;
+  startsAt: string;
+  endsAt: string;
+}) {
+  return request<Booking>('/bookings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      roomId: data.roomId,
+      title: data.title,
+      comment: data.comment || null,
+      startsAt: data.startsAt,
+      endsAt: data.endsAt,
+    }),
+  });
 }

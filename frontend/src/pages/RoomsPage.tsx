@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { NavLink, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -15,6 +16,7 @@ import {
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import BusinessIcon from '@mui/icons-material/Business';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import GroupsIcon from '@mui/icons-material/Groups';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
@@ -44,25 +46,28 @@ export function RoomsPage({
 }: {
   onConnectionErrorChange: (hasError: boolean) => void;
 }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [offices, setOffices] = useState(fallbackOffices);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [roomsStatus, setRoomsStatus] = useState<RoomsStatus>('loading');
-  const [officeId, setOfficeId] = useState('office-moscow');
+  const [officeId, setOfficeId] = useState(searchParams.get('officeId') || '');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [date, setDate] = useState('2026-08-25');
   const [startTime, setStartTime] = useState('15:00');
   const [duration, setDuration] = useState('60');
   const [capacity, setCapacity] = useState('4');
 
-  const selectedOffice = offices.find((office) => office.id === officeId) || offices[0];
+  const officeIdFromUrl = searchParams.get('officeId') || '';
+  const selectedOffice = offices.find((office) => office.id === officeId);
+
+  useEffect(() => {
+    setOfficeId(officeIdFromUrl);
+  }, [officeIdFromUrl]);
 
   useEffect(() => {
     getOffices()
       .then((loadedOffices) => {
         setOffices(loadedOffices);
-        if (loadedOffices.length > 0) {
-          setOfficeId(loadedOffices[0].id);
-        }
       })
       .catch(() => {
         setOffices(fallbackOffices);
@@ -70,6 +75,13 @@ export function RoomsPage({
   }, []);
 
   useEffect(() => {
+    if (!officeId) {
+      setRooms([]);
+      setRoomsStatus('success');
+      onConnectionErrorChange(false);
+      return;
+    }
+
     const startsAt = new Date(`${date}T${startTime}:00`);
     const endsAt = new Date(startsAt.getTime() + Number(duration) * 60 * 1000);
 
@@ -93,6 +105,12 @@ export function RoomsPage({
       });
   }, [capacity, date, duration, officeId, onConnectionErrorChange, startTime]);
 
+  function selectOffice(nextOfficeId: string) {
+    setOfficeId(nextOfficeId);
+    setSearchParams({ officeId: nextOfficeId });
+    setMenuAnchor(null);
+  }
+
   function resetFilters() {
     setDate('2026-08-25');
     setStartTime('15:00');
@@ -110,23 +128,22 @@ export function RoomsPage({
             onClick={(event) => setMenuAnchor(event.currentTarget)}
             sx={{ fontSize: 20, fontWeight: 700, padding: 0 }}
           >
-            {selectedOffice.name}
+            {selectedOffice ? selectedOffice.name : 'Выберите офис'}
           </Button>
           <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
             {offices.map((office) => (
               <MenuItem
                 key={office.id}
-                onClick={() => {
-                  setOfficeId(office.id);
-                  setMenuAnchor(null);
-                }}
+                onClick={() => selectOffice(office.id)}
               >
                 {office.name}
               </MenuItem>
             ))}
           </Menu>
           <Typography color="text.secondary" sx={{ marginTop: 0.5 }}>
-            {selectedOffice.address} · Местное время: 14:35 MSK
+            {selectedOffice
+              ? `${selectedOffice.address} · Местное время: 14:35 MSK`
+              : 'Адрес не выбран · Местное время: --'}
           </Typography>
         </Container>
       </Box>
@@ -140,6 +157,7 @@ export function RoomsPage({
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
+              disabled={!selectedOffice}
               sx={{ width: 170 }}
               InputLabelProps={{ shrink: true }}
               InputProps={{
@@ -156,6 +174,7 @@ export function RoomsPage({
               type="time"
               value={startTime}
               onChange={(event) => setStartTime(event.target.value)}
+              disabled={!selectedOffice}
               sx={{ width: 140 }}
               inputProps={{ step: 900 }}
               InputLabelProps={{ shrink: true }}
@@ -173,6 +192,7 @@ export function RoomsPage({
               label="Длительность"
               value={duration}
               onChange={(event) => setDuration(event.target.value)}
+              disabled={!selectedOffice}
               sx={{ width: 150 }}
             >
               <MenuItem value="30">30 минут</MenuItem>
@@ -185,6 +205,7 @@ export function RoomsPage({
               label="Вместимость"
               value={capacity}
               onChange={(event) => setCapacity(event.target.value)}
+              disabled={!selectedOffice}
               sx={{ width: 175 }}
               InputProps={{
                 startAdornment: (
@@ -206,13 +227,17 @@ export function RoomsPage({
       </Box>
 
       <Container maxWidth="lg" sx={{ paddingTop: 4, paddingBottom: 4 }}>
-        <Typography variant="h4" fontWeight={700} sx={{ marginBottom: 3 }}>
-          {roomsStatus === 'loading'
-            ? 'Загрузка переговорных...'
-            : 'Доступные переговорные в этом офисе'}
-        </Typography>
+        {!selectedOffice && <NoOfficeState />}
 
-        {roomsStatus === 'loading' && (
+        {selectedOffice && (
+          <Typography variant="h4" fontWeight={700} sx={{ marginBottom: 3 }}>
+            {roomsStatus === 'loading'
+              ? 'Загрузка переговорных...'
+              : 'Доступные переговорные в этом офисе'}
+          </Typography>
+        )}
+
+        {selectedOffice && roomsStatus === 'loading' && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
             {[1, 2, 3, 4].map((item) => (
               <RoomSkeleton key={item} />
@@ -220,13 +245,13 @@ export function RoomsPage({
           </Box>
         )}
 
-        {roomsStatus === 'error' && <RoomsErrorState />}
+        {selectedOffice && roomsStatus === 'error' && <RoomsErrorState />}
 
-        {roomsStatus === 'success' && rooms.length === 0 && (
+        {selectedOffice && roomsStatus === 'success' && rooms.length === 0 && (
           <RoomsEmptyState onReset={resetFilters} />
         )}
 
-        {roomsStatus === 'success' && rooms.length > 0 && (
+        {selectedOffice && roomsStatus === 'success' && rooms.length > 0 && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
             {rooms.map((room) => (
               <Card key={room.id} sx={{ width: 360 }}>
@@ -270,7 +295,12 @@ export function RoomsPage({
                   </Box>
 
                   <Stack direction="row" spacing={2} sx={{ marginTop: 2 }}>
-                    <Button fullWidth className="card-link-button">
+                    <Button
+                      fullWidth
+                      component={NavLink}
+                      to={`/rooms/${room.id}`}
+                      className="card-link-button"
+                    >
                       Подробнее
                     </Button>
                     <Button
@@ -289,6 +319,22 @@ export function RoomsPage({
         )}
       </Container>
     </Box>
+  );
+}
+
+function NoOfficeState() {
+  return (
+    <Stack alignItems="center" spacing={2} sx={{ paddingTop: 18, textAlign: 'center' }}>
+      <Box className="no-office-state-icon">
+        <BusinessIcon fontSize="large" />
+      </Box>
+      <Typography variant="h4" fontWeight={700}>
+        Выберите офис
+      </Typography>
+      <Typography color="text.secondary">
+        Для просмотра доступных переговорных сначала выберите офис из списка выше
+      </Typography>
+    </Stack>
   );
 }
 
