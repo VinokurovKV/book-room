@@ -56,9 +56,10 @@ export function RoomPage() {
   const [room, setRoom] = useState<Room | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
-  const [date, setDate] = useState(searchParams.get('date') || getTodayDate());
+  const [pageDate, setPageDate] = useState(searchParams.get('date') || getTodayDate());
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [bookingTitle, setBookingTitle] = useState('');
+  const [bookingDate, setBookingDate] = useState(searchParams.get('date') || getTodayDate());
   const [bookingStartTime, setBookingStartTime] = useState(searchParams.get('time') || '15:00');
   const [bookingStartTimeAnchor, setBookingStartTimeAnchor] = useState<null | HTMLElement>(null);
   const [bookingDuration, setBookingDuration] = useState(searchParams.get('duration') || '60');
@@ -133,6 +134,7 @@ export function RoomPage() {
     setBookingStatus('idle');
     setBookingError('');
     setFormWasSubmitted(false);
+    setBookingDate(pageDate);
     setIsBookingOpen(true);
   }
 
@@ -143,13 +145,13 @@ export function RoomPage() {
 
     setFormWasSubmitted(true);
 
-    const validationErrors = getBookingValidationErrors(bookingTitle, date, bookingStartTime);
+    const validationErrors = getBookingValidationErrors(bookingTitle, bookingDate, bookingStartTime);
 
     if (validationErrors.title || validationErrors.date) {
       return;
     }
 
-    const startsAt = new Date(`${date}T${bookingStartTime}:00`);
+    const startsAt = new Date(`${bookingDate}T${bookingStartTime}:00`);
     const endsAt = new Date(startsAt.getTime() + Number(bookingDuration) * 60 * 1000);
 
     setBookingStatus('loading');
@@ -164,7 +166,8 @@ export function RoomPage() {
     })
       .then(() => {
         setBookingStatus('success');
-        setBookingSuccessText(`${room.name}, ${formatDate(date)}, ${bookingStartTime}-${getBookingEndTime(bookingStartTime, bookingDuration)} MSK`);
+        setPageDate(bookingDate);
+        setBookingSuccessText(`${room.name}, ${formatDate(bookingDate)}, ${bookingStartTime}-${getBookingEndTime(bookingStartTime, bookingDuration)} MSK`);
         setIsBookingOpen(false);
         setShowBookingSuccess(true);
       })
@@ -185,7 +188,7 @@ export function RoomPage() {
   }
 
   const validationErrors = formWasSubmitted
-    ? getBookingValidationErrors(bookingTitle, date, bookingStartTime)
+    ? getBookingValidationErrors(bookingTitle, bookingDate, bookingStartTime)
     : { title: '', date: '' };
 
   return (
@@ -288,11 +291,11 @@ export function RoomPage() {
                   Расписание на день
                 </Typography>
                 <Typography color="text.secondary" sx={{ marginTop: 1 }}>
-                  {formatDate(date)}
+                  {formatDate(pageDate)}
                 </Typography>
               </Box>
 
-              <DatePickerButton value={date} onChange={setDate} placeholder="Выбрать дату" />
+              <DatePickerButton value={pageDate} onChange={setPageDate} placeholder="Выбрать дату" />
             </Stack>
 
             <Box sx={{ marginTop: 4, position: 'relative' }}>
@@ -373,8 +376,8 @@ export function RoomPage() {
                   Дата
                 </Typography>
                 <DatePickerButton
-                  value={date}
-                  onChange={setDate}
+                  value={bookingDate}
+                  onChange={setBookingDate}
                   error={Boolean(validationErrors.date)}
                   helperText={validationErrors.date}
                   fullWidth
@@ -556,7 +559,7 @@ export function RoomPage() {
             >
               <Stack direction="row" spacing={1} alignItems="center">
                 <InfoOutlinedIcon fontSize="small" />
-                <span>{formatBookingSummary(date, bookingStartTime, bookingDuration)}</span>
+                <span>{formatBookingSummary(bookingDate, bookingStartTime, bookingDuration)}</span>
               </Stack>
             </Box>
 
