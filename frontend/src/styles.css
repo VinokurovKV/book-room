@@ -33,6 +33,19 @@ a {
   background-color: transparent;
 }
 
+.bookings-tab.MuiButton-root {
+  color: #667085;
+  border-radius: 0;
+  text-transform: none;
+  padding: 0 0 14px;
+  font-size: 18px;
+}
+
+.bookings-tab.MuiButton-root.active {
+  color: #0f9d8f;
+  border-bottom: 2px solid #0f9d8f;
+}
+
 .card-link-button.MuiButton-root {
   color: #0f9d8f;
 }

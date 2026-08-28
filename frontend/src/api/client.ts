@@ -10,6 +10,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(data.error.message);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return (await response.json()) as T;
 }
 
@@ -58,5 +62,22 @@ export async function createBooking(data: {
       startsAt: data.startsAt,
       endsAt: data.endsAt,
     }),
+  });
+}
+
+export async function getBookings(scope: 'upcoming' | 'past', officeId: string) {
+  const searchParams = new URLSearchParams({ scope });
+
+  if (officeId) {
+    searchParams.set('officeId', officeId);
+  }
+
+  const data = await request<{ items: Booking[] }>(`/bookings?${searchParams.toString()}`);
+  return data.items;
+}
+
+export async function cancelBooking(bookingId: string) {
+  return request<void>(`/bookings/${encodeURIComponent(bookingId)}`, {
+    method: 'DELETE',
   });
 }

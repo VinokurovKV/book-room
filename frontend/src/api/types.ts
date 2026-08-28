@@ -21,6 +21,15 @@ export type Room = {
   available?: boolean;
 };
 
+export type BookingRoom = {
+  id: string;
+  officeId: string;
+  name: string;
+  floor: number;
+  capacity: number;
+  features: RoomFeature[];
+};
+
 export type Booking = {
   id: string;
   roomId: string;
@@ -28,6 +37,6 @@ export type Booking = {
   comment: string | null;
   startsAt: string;
   endsAt: string;
-  room: Room;
+  room: BookingRoom;
   office: Office;
 };
