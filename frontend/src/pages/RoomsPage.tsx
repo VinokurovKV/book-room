@@ -17,12 +17,13 @@ import {
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import BusinessIcon from '@mui/icons-material/Business';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import CheckIcon from '@mui/icons-material/Check';
 import GroupsIcon from '@mui/icons-material/Groups';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { getOffices, getRooms } from '../api/client';
 import type { Office, Room } from '../api/types';
+import { DatePickerButton, getTodayDate } from '../components/DatePickerButton';
 
 const fallbackOffices: Office[] = [
   {
@@ -39,6 +40,21 @@ const fallbackOffices: Office[] = [
   },
 ];
 
+const durationOptions = ['15', '30', '45', '60', '75', '90', '105', '120'];
+const capacityOptions = ['2', '4', '6', '8', '10', '12'];
+
+const filterButtonSx = {
+  color: '#344054',
+  borderColor: '#d0d5dd',
+  justifyContent: 'space-between',
+  minWidth: 0,
+  height: 40,
+  textTransform: 'none',
+  fontSize: 16,
+  fontWeight: 400,
+  lineHeight: 1.5,
+};
+
 type RoomsStatus = 'loading' | 'success' | 'error';
 
 export function RoomsPage({
@@ -52,10 +68,12 @@ export function RoomsPage({
   const [roomsStatus, setRoomsStatus] = useState<RoomsStatus>('loading');
   const [officeId, setOfficeId] = useState(searchParams.get('officeId') || '');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [date, setDate] = useState('2026-08-25');
+  const [date, setDate] = useState(getTodayDate());
   const [startTime, setStartTime] = useState('15:00');
   const [duration, setDuration] = useState('60');
   const [capacity, setCapacity] = useState('4');
+  const [durationAnchor, setDurationAnchor] = useState<null | HTMLElement>(null);
+  const [capacityAnchor, setCapacityAnchor] = useState<null | HTMLElement>(null);
 
   const officeIdFromUrl = searchParams.get('officeId') || '';
   const selectedOffice = offices.find((office) => office.id === officeId);
@@ -112,10 +130,20 @@ export function RoomsPage({
   }
 
   function resetFilters() {
-    setDate('2026-08-25');
+    setDate(getTodayDate());
     setStartTime('15:00');
     setDuration('60');
     setCapacity('4');
+  }
+
+  function selectDuration(nextDuration: string) {
+    setDuration(nextDuration);
+    setDurationAnchor(null);
+  }
+
+  function selectCapacity(nextCapacity: string) {
+    setCapacity(nextCapacity);
+    setCapacityAnchor(null);
   }
 
   return (
@@ -150,78 +178,124 @@ export function RoomsPage({
 
       <Box sx={{ backgroundColor: 'white', borderBottom: '1px solid #dce2ea' }}>
         <Container maxWidth="lg" sx={{ paddingTop: 2, paddingBottom: 2 }}>
-          <Stack direction="row" spacing={1.5}>
-            <TextField
-              size="small"
-              label="Дата"
-              type="date"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-              disabled={!selectedOffice}
-              sx={{ width: 170 }}
-              InputLabelProps={{ shrink: true }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <CalendarMonthIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <TextField
-              size="small"
-              label="Время начала"
-              type="time"
-              value={startTime}
-              onChange={(event) => setStartTime(event.target.value)}
-              disabled={!selectedOffice}
-              sx={{ width: 140 }}
-              inputProps={{ step: 900 }}
-              InputLabelProps={{ shrink: true }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <AccessTimeIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <TextField
-              size="small"
-              select
-              label="Длительность"
-              value={duration}
-              onChange={(event) => setDuration(event.target.value)}
-              disabled={!selectedOffice}
-              sx={{ width: 150 }}
-            >
-              <MenuItem value="30">30 минут</MenuItem>
-              <MenuItem value="60">1 час</MenuItem>
-              <MenuItem value="90">1,5 часа</MenuItem>
-            </TextField>
-            <TextField
-              size="small"
-              select
-              label="Вместимость"
-              value={capacity}
-              onChange={(event) => setCapacity(event.target.value)}
-              disabled={!selectedOffice}
-              sx={{ width: 175 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <GroupsIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            >
-              <MenuItem value="2">от 2 человек</MenuItem>
-              <MenuItem value="4">от 4 человек</MenuItem>
-              <MenuItem value="6">от 6 человек</MenuItem>
-              <MenuItem value="8">от 8 человек</MenuItem>
-              <MenuItem value="10">от 10 человек</MenuItem>
-              <MenuItem value="12">от 12 человек</MenuItem>
-            </TextField>
+          <Stack direction="row" spacing={1.5} rowGap={2} alignItems="flex-start" flexWrap="wrap">
+            <Box sx={{ minWidth: 180 }}>
+              <FilterLabel>Дата</FilterLabel>
+              <DatePickerButton value={date} onChange={setDate} disabled={!selectedOffice} />
+            </Box>
+
+            <Box sx={{ minWidth: 140 }}>
+              <FilterLabel>Время начала</FilterLabel>
+              <TextField
+                size="small"
+                type="time"
+                value={startTime}
+                onChange={(event) => setStartTime(event.target.value)}
+                disabled={!selectedOffice}
+                sx={{
+                  width: '100%',
+                  '& .MuiInputBase-root': { height: 40 },
+                  '& input': { color: '#344054', fontSize: 16, fontWeight: 400, lineHeight: 1.5 },
+                }}
+                inputProps={{ step: 900 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <AccessTimeIcon fontSize="small" sx={{ color: '#344054' }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
+
+            <Box sx={{ minWidth: 145 }}>
+              <FilterLabel>Длительность</FilterLabel>
+              <Button
+                variant="outlined"
+                endIcon={<KeyboardArrowDownIcon />}
+                onClick={(event) => setDurationAnchor(event.currentTarget)}
+                disabled={!selectedOffice}
+                sx={{ ...filterButtonSx, width: '100%' }}
+              >
+                {getDurationLabel(duration)}
+              </Button>
+              <Menu
+                anchorEl={durationAnchor}
+                open={Boolean(durationAnchor)}
+                onClose={() => setDurationAnchor(null)}
+                variant="menu"
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                PaperProps={{ sx: { width: durationAnchor?.clientWidth, maxHeight: 320 } }}
+              >
+                {durationOptions.map((option) => (
+                  <MenuItem
+                    key={option}
+                    onClick={() => selectDuration(option)}
+                    sx={{ padding: 0.5, fontSize: 16, fontWeight: 400, lineHeight: 1.5 }}
+                  >
+                    <Box
+                      sx={{
+                        width: '100%',
+                        borderRadius: 1,
+                        padding: 0.75,
+                        backgroundColor: option === duration ? '#c8f7ec' : 'transparent',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span>{getDurationLabel(option)}</span>
+                      {option === duration && <CheckIcon fontSize="small" />}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Menu>
+            </Box>
+
+            <Box sx={{ minWidth: 180 }}>
+              <FilterLabel>Вместимость</FilterLabel>
+              <Button
+                variant="outlined"
+                startIcon={<GroupsIcon />}
+                endIcon={<KeyboardArrowDownIcon />}
+                onClick={(event) => setCapacityAnchor(event.currentTarget)}
+                disabled={!selectedOffice}
+                sx={{ ...filterButtonSx, width: '100%' }}
+              >
+                {getCapacityButtonLabel(capacity)}
+              </Button>
+              <Menu
+                anchorEl={capacityAnchor}
+                open={Boolean(capacityAnchor)}
+                onClose={() => setCapacityAnchor(null)}
+                variant="menu"
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                PaperProps={{ sx: { width: capacityAnchor?.clientWidth, maxHeight: 320 } }}
+              >
+                {capacityOptions.map((option) => (
+                  <MenuItem
+                    key={option}
+                    onClick={() => selectCapacity(option)}
+                    sx={{ padding: 0.5, fontSize: 16, fontWeight: 400, lineHeight: 1.5 }}
+                  >
+                    <Box
+                      sx={{
+                        width: '100%',
+                        borderRadius: 1,
+                        padding: 0.75,
+                        backgroundColor: option === capacity ? '#c8f7ec' : 'transparent',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span>{getCapacityMenuLabel(option)}</span>
+                      {option === capacity && <CheckIcon fontSize="small" />}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Menu>
+            </Box>
           </Stack>
         </Container>
       </Box>
@@ -307,6 +381,8 @@ export function RoomsPage({
                       fullWidth
                       variant="contained"
                       disabled={!room.available}
+                      component={NavLink}
+                      to={`/rooms/${room.id}?booking=1&date=${date}&time=${startTime}&duration=${duration}`}
                       className="card-book-button"
                     >
                       Забронировать
@@ -319,6 +395,14 @@ export function RoomsPage({
         )}
       </Container>
     </Box>
+  );
+}
+
+function FilterLabel({ children }: { children: string }) {
+  return (
+    <Typography color="text.secondary" fontSize={12} fontWeight={700} sx={{ marginBottom: 0.75 }}>
+      {children}
+    </Typography>
   );
 }
 
@@ -336,6 +420,25 @@ function NoOfficeState() {
       </Typography>
     </Stack>
   );
+}
+
+function getDurationLabel(value: string) {
+  if (value === '15') return '15 мин';
+  if (value === '30') return '30 мин';
+  if (value === '45') return '45 мин';
+  if (value === '60') return '1 час';
+  if (value === '75') return '1 ч 15 мин';
+  if (value === '90') return '1 ч 30 мин';
+  if (value === '105') return '1 ч 45 мин';
+  return '2 часа';
+}
+
+function getCapacityButtonLabel(value: string) {
+  return `Мин. ${value} чел.`;
+}
+
+function getCapacityMenuLabel(value: string) {
+  return `${value} чел.`;
 }
 
 function RoomSkeleton() {

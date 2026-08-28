@@ -10,7 +10,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  InputAdornment,
   Menu,
   MenuItem,
   Skeleton,
@@ -25,6 +24,7 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { cancelBooking, getBookings, getOffices } from '../api/client';
 import type { Booking, Office } from '../api/types';
+import { DatePickerButton } from '../components/DatePickerButton';
 
 type BookingsStatus = 'loading' | 'success' | 'error';
 type BookingsScope = 'upcoming' | 'past';
@@ -156,20 +156,7 @@ export function BookingsPage() {
             ))}
           </Menu>
 
-          <TextField
-            size="small"
-            type="date"
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-            sx={{ width: 180 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <CalendarMonthIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <DatePickerButton value={date} onChange={setDate} placeholder="За все время" />
           {date && (
             <Button
               variant="outlined"

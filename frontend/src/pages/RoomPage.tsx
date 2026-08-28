@@ -1,5 +1,5 @@
-import { Link, useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -12,13 +12,12 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  InputAdornment,
+  Menu,
   MenuItem,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import GroupsIcon from '@mui/icons-material/Groups';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import TvIcon from '@mui/icons-material/Tv';
@@ -28,8 +27,10 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { createBooking, getRoom } from '../api/client';
 import type { Room } from '../api/types';
+import { DatePickerButton, getTodayDate } from '../components/DatePickerButton';
 
 const dayHours = [
   '09:00',
@@ -46,22 +47,29 @@ const dayHours = [
   '20:00',
 ];
 
+const durationOptions = ['15', '30', '45', '60', '75', '90', '105', '120'];
+const timeOptions = createTimeOptions();
+
 export function RoomPage() {
   const { roomId } = useParams();
+  const [searchParams] = useSearchParams();
   const [room, setRoom] = useState<Room | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
-  const [date, setDate] = useState(getTomorrowDate());
+  const [date, setDate] = useState(searchParams.get('date') || getTodayDate());
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [bookingTitle, setBookingTitle] = useState('');
-  const [bookingStartTime, setBookingStartTime] = useState('15:00');
-  const [bookingDuration, setBookingDuration] = useState('60');
+  const [bookingStartTime, setBookingStartTime] = useState(searchParams.get('time') || '15:00');
+  const [bookingStartTimeAnchor, setBookingStartTimeAnchor] = useState<null | HTMLElement>(null);
+  const [bookingDuration, setBookingDuration] = useState(searchParams.get('duration') || '60');
+  const [bookingDurationAnchor, setBookingDurationAnchor] = useState<null | HTMLElement>(null);
   const [bookingComment, setBookingComment] = useState('');
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [bookingError, setBookingError] = useState('');
   const [formWasSubmitted, setFormWasSubmitted] = useState(false);
   const [showBookingSuccess, setShowBookingSuccess] = useState(false);
   const [bookingSuccessText, setBookingSuccessText] = useState('');
+  const hasOpenedBookingForm = useRef(false);
 
   useEffect(() => {
     if (!roomId) {
@@ -82,6 +90,13 @@ export function RoomPage() {
         setIsLoading(false);
       });
   }, [roomId]);
+
+  useEffect(() => {
+    if (!isLoading && searchParams.get('booking') === '1' && !hasOpenedBookingForm.current) {
+      hasOpenedBookingForm.current = true;
+      openBookingDialog();
+    }
+  }, [isLoading, searchParams]);
 
   if (isLoading) {
     return (
@@ -157,6 +172,16 @@ export function RoomPage() {
         setBookingStatus('error');
         setBookingError(error instanceof Error ? error.message : 'Не удалось создать бронь');
       });
+  }
+
+  function selectBookingDuration(nextDuration: string) {
+    setBookingDuration(nextDuration);
+    setBookingDurationAnchor(null);
+  }
+
+  function selectBookingStartTime(nextTime: string) {
+    setBookingStartTime(nextTime);
+    setBookingStartTimeAnchor(null);
   }
 
   const validationErrors = formWasSubmitted
@@ -267,22 +292,7 @@ export function RoomPage() {
                 </Typography>
               </Box>
 
-              <TextField
-                size="small"
-                label="Выбрать дату"
-                type="date"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-                sx={{ width: 190 }}
-                InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <CalendarMonthIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+              <DatePickerButton value={date} onChange={setDate} placeholder="Выбрать дату" />
             </Stack>
 
             <Box sx={{ marginTop: 4, position: 'relative' }}>
@@ -362,24 +372,14 @@ export function RoomPage() {
                 <Typography fontWeight={700} fontSize={14} sx={{ marginBottom: 0.75 }}>
                   Дата
                 </Typography>
-                <TextField
-                  size="small"
-                  fullWidth
-                  type="date"
+                <DatePickerButton
                   value={date}
-                  onChange={(event) => setDate(event.target.value)}
+                  onChange={setDate}
                   error={Boolean(validationErrors.date)}
                   helperText={validationErrors.date}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <CalendarMonthIcon
-                          fontSize="small"
-                          color={validationErrors.date ? 'error' : 'inherit'}
-                        />
-                      </InputAdornment>
-                    ),
-                  }}
+                  fullWidth
+                  smallCalendar
+                  allowPast
                 />
               </Box>
 
@@ -387,21 +387,74 @@ export function RoomPage() {
                 <Typography fontWeight={700} fontSize={14} sx={{ marginBottom: 0.75 }}>
                   Время начала
                 </Typography>
-                <TextField
-                  size="small"
-                  fullWidth
-                  type="time"
-                  value={bookingStartTime}
-                  onChange={(event) => setBookingStartTime(event.target.value)}
-                  inputProps={{ step: 900 }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <AccessTimeIcon fontSize="small" />
-                      </InputAdornment>
-                    ),
+                <Button
+                  variant="outlined"
+                  onClick={(event) => setBookingStartTimeAnchor(event.currentTarget)}
+                  sx={{
+                    width: '100%',
+                    height: 40,
+                    color: '#344054',
+                    borderColor: '#d0d5dd',
+                    justifyContent: 'flex-start',
+                    textTransform: 'none',
+                    fontSize: 16,
+                    fontWeight: 400,
+                    lineHeight: 1.5,
+                    '&:hover': {
+                      borderColor: '#0f9d8f',
+                    },
+                    '&.Mui-focusVisible': {
+                      borderColor: '#0f9d8f',
+                    },
                   }}
-                />
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1.5 }}>
+                    <AccessTimeIcon fontSize="small" />
+                    <span>{bookingStartTime}</span>
+                    <KeyboardArrowDownIcon sx={{ marginLeft: 'auto' }} />
+                  </Box>
+                </Button>
+                <Menu
+                  anchorEl={bookingStartTimeAnchor}
+                  open={Boolean(bookingStartTimeAnchor)}
+                  onClose={() => setBookingStartTimeAnchor(null)}
+                  variant="menu"
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                  PaperProps={{
+                    sx: {
+                      width: bookingStartTimeAnchor?.clientWidth,
+                      maxHeight: getMenuMaxHeight(bookingStartTimeAnchor),
+                    },
+                  }}
+                >
+                  {timeOptions.map((option) => (
+                    <MenuItem
+                      key={option}
+                      onClick={() => selectBookingStartTime(option)}
+                      sx={{
+                        padding: 0.5,
+                        fontSize: 14,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: '100%',
+                          borderRadius: 1,
+                          padding: 0.75,
+                          backgroundColor: option === bookingStartTime ? '#c8f7ec' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 1,
+                        }}
+                      >
+                        <span>{option}</span>
+                        {option === bookingStartTime && <CheckIcon fontSize="small" />}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Menu>
               </Box>
             </Stack>
 
@@ -409,17 +462,71 @@ export function RoomPage() {
               <Typography fontWeight={700} fontSize={14} sx={{ marginBottom: 0.75 }}>
                 Продолжительность
               </Typography>
-              <TextField
-                size="small"
-                fullWidth
-                select
-                value={bookingDuration}
-                onChange={(event) => setBookingDuration(event.target.value)}
+              <Button
+                variant="outlined"
+                endIcon={<KeyboardArrowDownIcon />}
+                onClick={(event) => setBookingDurationAnchor(event.currentTarget)}
+                sx={{
+                  width: '100%',
+                  height: 40,
+                  color: '#344054',
+                  borderColor: '#d0d5dd',
+                  justifyContent: 'space-between',
+                  textTransform: 'none',
+                  fontSize: 16,
+                  fontWeight: 400,
+                  lineHeight: 1.5,
+                  '&:hover': {
+                    borderColor: '#0f9d8f',
+                  },
+                  '&.Mui-focusVisible': {
+                    borderColor: '#0f9d8f',
+                  },
+                }}
               >
-                <MenuItem value="30">30 минут (до {getBookingEndTime(bookingStartTime, '30')})</MenuItem>
-                <MenuItem value="60">1 час (до {getBookingEndTime(bookingStartTime, '60')})</MenuItem>
-                <MenuItem value="90">1,5 часа (до {getBookingEndTime(bookingStartTime, '90')})</MenuItem>
-              </TextField>
+                {getDurationLabel(bookingDuration)} (до {getBookingEndTime(bookingStartTime, bookingDuration)})
+              </Button>
+              <Menu
+                anchorEl={bookingDurationAnchor}
+                open={Boolean(bookingDurationAnchor)}
+                onClose={() => setBookingDurationAnchor(null)}
+                variant="menu"
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                PaperProps={{
+                  sx: {
+                    width: bookingDurationAnchor?.clientWidth,
+                    maxHeight: getMenuMaxHeight(bookingDurationAnchor),
+                  },
+                }}
+              >
+                {durationOptions.map((option) => (
+                  <MenuItem
+                    key={option}
+                    onClick={() => selectBookingDuration(option)}
+                    sx={{
+                      padding: 0.5,
+                      fontSize: 14,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: '100%',
+                        borderRadius: 1,
+                        padding: 0.75,
+                        backgroundColor: option === bookingDuration ? '#c8f7ec' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1,
+                      }}
+                    >
+                      <span>{getDurationLabel(option)} (до {getBookingEndTime(bookingStartTime, option)})</span>
+                      {option === bookingDuration && <CheckIcon fontSize="small" />}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Menu>
             </Box>
 
             <Box>
@@ -483,10 +590,26 @@ export function RoomPage() {
   );
 }
 
-function getTomorrowDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
+function getMenuMaxHeight(anchor: HTMLElement | null) {
+  if (!anchor) {
+    return 220;
+  }
+
+  const spaceBelow = window.innerHeight - anchor.getBoundingClientRect().bottom - 12;
+  return Math.max(48, Math.min(220, spaceBelow));
+}
+
+function createTimeOptions() {
+  const options = [];
+  const date = new Date('2026-01-01T09:00:00');
+  const endDate = new Date('2026-01-01T20:00:00');
+
+  while (date <= endDate) {
+    options.push(date.toTimeString().slice(0, 5));
+    date.setMinutes(date.getMinutes() + 15);
+  }
+
+  return options;
 }
 
 function formatDate(value: string) {
@@ -503,18 +626,20 @@ function getBookingEndTime(startTime: string, duration: string) {
   return date.toTimeString().slice(0, 5);
 }
 
+function getDurationLabel(value: string) {
+  if (value === '15') return '15 мин';
+  if (value === '30') return '30 мин';
+  if (value === '45') return '45 мин';
+  if (value === '60') return '1 час';
+  if (value === '75') return '1 ч 15 мин';
+  if (value === '90') return '1 ч 30 мин';
+  if (value === '105') return '1 ч 45 мин';
+  return '2 часа';
+}
+
 function formatBookingSummary(date: string, startTime: string, duration: string) {
   const endTime = getBookingEndTime(startTime, duration);
-
-  if (duration === '30') {
-    return `Бронирование на ${formatDate(date)}, ${startTime} - ${endTime} (30 минут)`;
-  }
-
-  if (duration === '60') {
-    return `Бронирование на ${formatDate(date)}, ${startTime} - ${endTime} (1 час)`;
-  }
-
-  return `Бронирование на ${formatDate(date)}, ${startTime} - ${endTime} (1,5 часа)`;
+  return `Бронирование на ${formatDate(date)}, ${startTime} - ${endTime} (${getDurationLabel(duration)})`;
 }
 
 function getBookingValidationErrors(title: string, date: string, startTime: string) {
