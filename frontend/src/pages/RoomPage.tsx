@@ -29,7 +29,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { createBooking, getRoom, getRoomBookings } from '../api/client';
+import { ApiError, createBooking, getRoom, getRoomBookings } from '../api/client';
 import type { Booking, Room } from '../api/types';
 import { DatePickerButton, getTodayDate } from '../components/DatePickerButton';
 
@@ -74,6 +74,7 @@ export function RoomPage() {
   const [bookingError, setBookingError] = useState('');
   const [formWasSubmitted, setFormWasSubmitted] = useState(false);
   const [showBookingSuccess, setShowBookingSuccess] = useState(false);
+  const [showBookingConflict, setShowBookingConflict] = useState(false);
   const [bookingSuccessText, setBookingSuccessText] = useState('');
   const hasOpenedBookingForm = useRef(false);
 
@@ -194,6 +195,15 @@ export function RoomPage() {
         setShowBookingSuccess(true);
       })
       .catch((error) => {
+        if (error instanceof ApiError && error.status === 409) {
+          setBookingStatus('idle');
+          setPageDate(bookingDate);
+          setScheduleReload((value) => value + 1);
+          setIsBookingOpen(false);
+          setShowBookingConflict(true);
+          return;
+        }
+
         setBookingStatus('error');
         setBookingError(error instanceof Error ? error.message : 'Не удалось создать бронь');
       });
@@ -265,6 +275,43 @@ export function RoomPage() {
           </Stack>
         </Box>
       )}
+
+      <Dialog
+        open={showBookingConflict}
+        onClose={() => setShowBookingConflict(false)}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 4, padding: 2 } }}
+      >
+        <DialogContent>
+          <Stack alignItems="center" spacing={2.5} sx={{ textAlign: 'center', paddingTop: 2 }}>
+            <Box className="error-state-icon" sx={{ width: 84, height: 84 }}>
+              <WarningAmberIcon fontSize="large" />
+            </Box>
+
+            <Typography variant="h4" fontWeight={700}>
+              Время уже занято
+            </Typography>
+
+            <Typography color="text.secondary" fontSize={18}>
+              Выбранный интервал был забронирован другим сотрудником. Расписание обновлено.
+            </Typography>
+
+            <Button
+              fullWidth
+              variant="contained"
+              className="card-book-button"
+              onClick={() => {
+                setShowBookingConflict(false);
+                setIsBookingOpen(true);
+              }}
+              sx={{ marginTop: 2 }}
+            >
+              Выбрать другое время
+            </Button>
+          </Stack>
+        </DialogContent>
+      </Dialog>
 
       <Stack direction="row" spacing={1} alignItems="center" sx={{ marginBottom: 2 }}>
         <Link className="breadcrumbs-link" to="/rooms">

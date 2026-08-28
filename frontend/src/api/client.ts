@@ -2,12 +2,21 @@ import type { Booking, Office, Room } from './types';
 
 const API_URL = 'http://localhost:3000/api/v1';
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, options);
 
   if (!response.ok) {
     const data = (await response.json()) as { error: { message: string } };
-    throw new Error(data.error.message);
+    throw new ApiError(response.status, data.error.message);
   }
 
   if (response.status === 204) {
