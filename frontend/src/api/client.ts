@@ -43,6 +43,14 @@ export async function getRoom(roomId: string) {
   return request<Room>(`/rooms/${encodeURIComponent(roomId)}`);
 }
 
+export async function getRoomBookings(roomId: string, from: string, to: string) {
+  const searchParams = new URLSearchParams({ from, to });
+  const data = await request<{ items: Booking[] }>(
+    `/rooms/${encodeURIComponent(roomId)}/bookings?${searchParams.toString()}`,
+  );
+  return data.items;
+}
+
 export async function createBooking(data: {
   roomId: string;
   title: string;

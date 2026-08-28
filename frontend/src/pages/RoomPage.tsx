@@ -14,6 +14,7 @@ import {
   Divider,
   Menu,
   MenuItem,
+  Skeleton,
   Stack,
   TextField,
   Typography,
@@ -28,8 +29,8 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { createBooking, getRoom } from '../api/client';
-import type { Room } from '../api/types';
+import { createBooking, getRoom, getRoomBookings } from '../api/client';
+import type { Booking, Room } from '../api/types';
 import { DatePickerButton, getTodayDate } from '../components/DatePickerButton';
 
 const dayHours = [
@@ -57,6 +58,10 @@ export function RoomPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [pageDate, setPageDate] = useState(searchParams.get('date') || getTodayDate());
+  const [scheduleBookings, setScheduleBookings] = useState<Booking[]>([]);
+  const [isScheduleLoading, setIsScheduleLoading] = useState(false);
+  const [isScheduleError, setIsScheduleError] = useState(false);
+  const [scheduleReload, setScheduleReload] = useState(0);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [bookingTitle, setBookingTitle] = useState('');
   const [bookingDate, setBookingDate] = useState(searchParams.get('date') || getTodayDate());
@@ -99,14 +104,30 @@ export function RoomPage() {
     }
   }, [isLoading, searchParams]);
 
+  useEffect(() => {
+    if (!roomId) {
+      return;
+    }
+
+    setIsScheduleLoading(true);
+    setIsScheduleError(false);
+    setScheduleBookings([]);
+
+    getRoomBookings(roomId, getDayStartIso(pageDate), getNextDayStartIso(pageDate))
+      .then((loadedBookings) => {
+        setScheduleBookings(loadedBookings);
+      })
+      .catch(() => {
+        setScheduleBookings([]);
+        setIsScheduleError(true);
+      })
+      .finally(() => {
+        setIsScheduleLoading(false);
+      });
+  }, [roomId, pageDate, scheduleReload]);
+
   if (isLoading) {
-    return (
-      <Container maxWidth="xl" sx={{ paddingTop: 4, paddingBottom: 4 }}>
-        <Typography variant="h4" fontWeight={700}>
-          Загрузка комнаты...
-        </Typography>
-      </Container>
-    );
+    return <RoomDetailLoadingPage />;
   }
 
   if (isError || !room) {
@@ -167,6 +188,7 @@ export function RoomPage() {
       .then(() => {
         setBookingStatus('success');
         setPageDate(bookingDate);
+        setScheduleReload((value) => value + 1);
         setBookingSuccessText(`${room.name}, ${formatDate(bookingDate)}, ${bookingStartTime}-${getBookingEndTime(bookingStartTime, bookingDuration)} MSK`);
         setIsBookingOpen(false);
         setShowBookingSuccess(true);
@@ -285,50 +307,59 @@ export function RoomPage() {
 
         <Card sx={{ flexGrow: 1 }}>
           <CardContent>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-              <Box>
-                <Typography variant="h4" fontWeight={700}>
-                  Расписание на день
-                </Typography>
-                <Typography color="text.secondary" sx={{ marginTop: 1 }}>
-                  {formatDate(pageDate)}
-                </Typography>
-              </Box>
+            {isScheduleError ? (
+              <ScheduleErrorState onReload={() => setScheduleReload((value) => value + 1)} />
+            ) : (
+              <>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box>
+                    <Typography variant="h4" fontWeight={700}>
+                      Расписание на день
+                    </Typography>
+                    <Typography color="text.secondary" sx={{ marginTop: 1 }}>
+                      {formatDate(pageDate)}
+                    </Typography>
+                  </Box>
 
-              <DatePickerButton value={pageDate} onChange={setPageDate} placeholder="Выбрать дату" />
-            </Stack>
+                  <DatePickerButton value={pageDate} onChange={setPageDate} placeholder="Выбрать дату" />
+                </Stack>
 
-            <Box sx={{ marginTop: 4, position: 'relative' }}>
-              {dayHours.map((hour) => (
-                <Box
-                  key={hour}
-                  sx={{
-                    height: 42,
-                    display: 'grid',
-                    gridTemplateColumns: '64px 1fr',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Typography color="text.secondary">
-                    {hour}
-                  </Typography>
-                  <Box sx={{ borderTop: '1px solid #dce2ea' }} />
+                <Box sx={{ marginTop: 4, position: 'relative' }}>
+                  {dayHours.map((hour) => (
+                    <Box
+                      key={hour}
+                      sx={{
+                        height: 42,
+                        display: 'grid',
+                        gridTemplateColumns: '64px 1fr',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Typography color="text.secondary">
+                        {hour}
+                      </Typography>
+                      <Box sx={{ borderTop: '1px solid #dce2ea' }} />
+                    </Box>
+                  ))}
+
+                  {!isScheduleLoading && scheduleBookings.map((booking) => (
+                    <Box
+                      key={booking.id}
+                      className="schedule-item schedule-item-busy"
+                      sx={getScheduleItemSx(booking.startsAt, booking.endsAt)}
+                    >
+                      {booking.title}
+                    </Box>
+                  ))}
                 </Box>
-              ))}
 
-              <Box className="schedule-item schedule-item-free">
-                Daily Sync / Команда разработки
-              </Box>
-              <Box className="schedule-item schedule-item-busy">
-                Занято
-              </Box>
-            </Box>
-
-            <Stack direction="row" justifyContent="flex-end" sx={{ marginTop: 4 }}>
-              <Button variant="contained" className="card-book-button" onClick={openBookingDialog}>
-                Забронировать комнату
-              </Button>
-            </Stack>
+                <Stack direction="row" justifyContent="flex-end" sx={{ marginTop: 4 }}>
+                  <Button variant="contained" className="card-book-button" onClick={openBookingDialog}>
+                    Забронировать комнату
+                  </Button>
+                </Stack>
+              </>
+            )}
           </CardContent>
         </Card>
       </Box>
@@ -593,6 +624,92 @@ export function RoomPage() {
   );
 }
 
+function RoomDetailLoadingPage() {
+  return (
+    <Container maxWidth="xl" sx={{ paddingTop: 4, paddingBottom: 4 }}>
+      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ marginBottom: 2 }}>
+        <Skeleton variant="rounded" width={120} height={18} />
+        <Typography color="text.secondary">›</Typography>
+        <Skeleton variant="rounded" width={120} height={18} />
+        <Typography color="text.secondary">›</Typography>
+        <Skeleton variant="rounded" width={150} height={18} />
+      </Stack>
+
+      <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+        <Card sx={{ width: 360 }}>
+          <CardContent>
+            <Skeleton variant="rounded" width={180} height={34} />
+            <Skeleton variant="rounded" width={250} height={24} sx={{ marginTop: 2 }} />
+
+            <Divider sx={{ marginTop: 3, marginBottom: 3 }} />
+
+            <Stack spacing={2}>
+              <Skeleton variant="rounded" height={24} />
+              <Skeleton variant="rounded" height={24} />
+              <Skeleton variant="rounded" height={24} />
+              <Skeleton variant="rounded" height={24} />
+            </Stack>
+          </CardContent>
+        </Card>
+
+        <Card sx={{ flexGrow: 1 }}>
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+              <Box>
+                <Skeleton variant="rounded" width={220} height={34} />
+                <Skeleton variant="rounded" width={150} height={24} sx={{ marginTop: 2 }} />
+              </Box>
+              <Skeleton variant="rounded" width={180} height={40} />
+            </Stack>
+
+            <Box sx={{ marginTop: 4 }}>
+              {dayHours.map((hour) => (
+                <Box
+                  key={hour}
+                  sx={{
+                    height: 42,
+                    display: 'grid',
+                    gridTemplateColumns: '64px 1fr',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Typography color="text.secondary">
+                    {hour}
+                  </Typography>
+                  <Box sx={{ borderTop: '1px solid #dce2ea' }} />
+                </Box>
+              ))}
+            </Box>
+
+            <Stack direction="row" justifyContent="flex-end" sx={{ marginTop: 4 }}>
+              <Skeleton variant="rounded" width={220} height={40} />
+            </Stack>
+          </CardContent>
+        </Card>
+      </Box>
+    </Container>
+  );
+}
+
+function ScheduleErrorState({ onReload }: { onReload: () => void }) {
+  return (
+    <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 430, textAlign: 'center' }}>
+      <Box className="error-state-icon">
+        <WarningAmberIcon fontSize="large" />
+      </Box>
+      <Typography variant="h4" fontWeight={700}>
+        Не удалось загрузить расписание
+      </Typography>
+      <Typography color="text.secondary">
+        Произошла ошибка при загрузке расписания переговорной
+      </Typography>
+      <Button variant="contained" className="card-book-button" onClick={onReload}>
+        Попробовать снова
+      </Button>
+    </Stack>
+  );
+}
+
 function getMenuMaxHeight(anchor: HTMLElement | null) {
   if (!anchor) {
     return 220;
@@ -600,6 +717,37 @@ function getMenuMaxHeight(anchor: HTMLElement | null) {
 
   const spaceBelow = window.innerHeight - anchor.getBoundingClientRect().bottom - 12;
   return Math.max(48, Math.min(220, spaceBelow));
+}
+
+function getScheduleItemSx(startsAt: string, endsAt: string) {
+  const dayStartMinutes = 9 * 60;
+  const dayEndMinutes = 20 * 60;
+  const rowHeight = 42;
+  const firstLineTop = rowHeight / 2;
+  const startMinutes = Math.max(dayStartMinutes, getTimeMinutes(startsAt));
+  const endMinutes = Math.min(dayEndMinutes, getTimeMinutes(endsAt));
+  const top = firstLineTop + ((startMinutes - dayStartMinutes) / 60) * rowHeight;
+  const height = Math.max(28, ((endMinutes - startMinutes) / 60) * rowHeight);
+
+  return {
+    top,
+    height,
+  };
+}
+
+function getTimeMinutes(value: string) {
+  const date = new Date(value);
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function getDayStartIso(value: string) {
+  return new Date(`${value}T00:00:00`).toISOString();
+}
+
+function getNextDayStartIso(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  date.setDate(date.getDate() + 1);
+  return date.toISOString();
 }
 
 function createTimeOptions() {
