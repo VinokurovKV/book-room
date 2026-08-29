@@ -382,7 +382,13 @@ export function RoomsPage({
                       variant="contained"
                       disabled={!room.available}
                       component={NavLink}
-                      to={`/rooms/${room.id}?booking=1&date=${date}&time=${startTime}&duration=${duration}`}
+                      to={`/rooms/${room.id}`}
+                      state={{
+                        openBooking: true,
+                        date,
+                        time: startTime,
+                        duration,
+                      }}
                       className="card-book-button"
                     >
                       Забронировать

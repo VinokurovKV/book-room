@@ -1,4 +1,4 @@
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -50,24 +50,52 @@ const dayHours = [
 
 const durationOptions = ['15', '30', '45', '60', '75', '90', '105', '120'];
 const timeOptions = createTimeOptions();
+const WS_URL = 'ws://localhost:3000/api/v1/ws';
+
+type RealtimeEvent = {
+  type: string;
+  data: {
+    booking?: Booking;
+    roomId?: string;
+    startsAt?: string;
+    endsAt?: string;
+  };
+};
+
+type BookingRouteState = {
+  openBooking?: boolean;
+  date?: string;
+  time?: string;
+  duration?: string;
+};
 
 export function RoomPage() {
   const { roomId } = useParams();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
+  const bookingRouteState = (location.state as BookingRouteState | null) || {};
   const [room, setRoom] = useState<Room | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
-  const [pageDate, setPageDate] = useState(searchParams.get('date') || getTodayDate());
+  const [pageDate, setPageDate] = useState(
+    bookingRouteState.date || searchParams.get('date') || getTodayDate(),
+  );
   const [scheduleBookings, setScheduleBookings] = useState<Booking[]>([]);
   const [isScheduleLoading, setIsScheduleLoading] = useState(false);
   const [isScheduleError, setIsScheduleError] = useState(false);
   const [scheduleReload, setScheduleReload] = useState(0);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [bookingTitle, setBookingTitle] = useState('');
-  const [bookingDate, setBookingDate] = useState(searchParams.get('date') || getTodayDate());
-  const [bookingStartTime, setBookingStartTime] = useState(searchParams.get('time') || '15:00');
+  const [bookingDate, setBookingDate] = useState(
+    bookingRouteState.date || searchParams.get('date') || getTodayDate(),
+  );
+  const [bookingStartTime, setBookingStartTime] = useState(
+    bookingRouteState.time || searchParams.get('time') || '15:00',
+  );
   const [bookingStartTimeAnchor, setBookingStartTimeAnchor] = useState<null | HTMLElement>(null);
-  const [bookingDuration, setBookingDuration] = useState(searchParams.get('duration') || '60');
+  const [bookingDuration, setBookingDuration] = useState(
+    bookingRouteState.duration || searchParams.get('duration') || '60',
+  );
   const [bookingDurationAnchor, setBookingDurationAnchor] = useState<null | HTMLElement>(null);
   const [bookingComment, setBookingComment] = useState('');
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -99,16 +127,20 @@ export function RoomPage() {
   }, [roomId]);
 
   useEffect(() => {
-    if (!isLoading && searchParams.get('booking') === '1' && !hasOpenedBookingForm.current) {
+    const shouldOpenBooking = bookingRouteState.openBooking || searchParams.get('booking') === '1';
+
+    if (!isLoading && shouldOpenBooking && !hasOpenedBookingForm.current) {
       hasOpenedBookingForm.current = true;
       openBookingDialog();
     }
-  }, [isLoading, searchParams]);
+  }, [bookingRouteState.openBooking, isLoading, searchParams]);
 
   useEffect(() => {
     if (!roomId) {
       return;
     }
+
+    let isActual = true;
 
     setIsScheduleLoading(true);
     setIsScheduleError(false);
@@ -116,16 +148,52 @@ export function RoomPage() {
 
     getRoomBookings(roomId, getDayStartIso(pageDate), getNextDayStartIso(pageDate))
       .then((loadedBookings) => {
-        setScheduleBookings(loadedBookings);
+        if (isActual) {
+          setScheduleBookings(loadedBookings);
+        }
       })
       .catch(() => {
-        setScheduleBookings([]);
-        setIsScheduleError(true);
+        if (isActual) {
+          setScheduleBookings([]);
+          setIsScheduleError(true);
+        }
       })
       .finally(() => {
-        setIsScheduleLoading(false);
+        if (isActual) {
+          setIsScheduleLoading(false);
+        }
       });
+
+    return () => {
+      isActual = false;
+    };
   }, [roomId, pageDate, scheduleReload]);
+
+  useEffect(() => {
+    if (!roomId) {
+      return;
+    }
+
+    const socket = new WebSocket(WS_URL);
+
+    socket.onmessage = (message) => {
+      let event: RealtimeEvent;
+
+      try {
+        event = JSON.parse(message.data) as RealtimeEvent;
+      } catch {
+        return;
+      }
+
+      if (shouldReloadSchedule(event, roomId, pageDate)) {
+        setScheduleReload((value) => value + 1);
+      }
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [roomId, pageDate]);
 
   if (isLoading) {
     return <RoomDetailLoadingPage />;
@@ -764,6 +832,33 @@ function getMenuMaxHeight(anchor: HTMLElement | null) {
 
   const spaceBelow = window.innerHeight - anchor.getBoundingClientRect().bottom - 12;
   return Math.max(48, Math.min(220, spaceBelow));
+}
+
+function shouldReloadSchedule(event: RealtimeEvent, roomId: string, pageDate: string) {
+  if (event.type === 'data.reset') {
+    return true;
+  }
+
+  if (event.type !== 'booking.created' && event.type !== 'booking.cancelled') {
+    return false;
+  }
+
+  const booking = event.data.booking;
+
+  if (!booking || booking.roomId !== roomId) {
+    return false;
+  }
+
+  return isTimeInSelectedDay(booking.startsAt, booking.endsAt, pageDate);
+}
+
+function isTimeInSelectedDay(startsAt: string, endsAt: string, pageDate: string) {
+  const dayStart = new Date(getDayStartIso(pageDate)).getTime();
+  const dayEnd = new Date(getNextDayStartIso(pageDate)).getTime();
+  const bookingStart = new Date(startsAt).getTime();
+  const bookingEnd = new Date(endsAt).getTime();
+
+  return bookingStart < dayEnd && bookingEnd > dayStart;
 }
 
 function getScheduleItemSx(startsAt: string, endsAt: string) {
