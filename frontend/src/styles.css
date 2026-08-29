@@ -138,3 +138,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background-color: #eef2f6;
   border: 1px solid #dce2ea;
 }
+
+.schedule-item-highlighted {
+  color: #087f73;
+  background-color: #c8f7ec;
+  border: 1px solid #0f9d8f;
+}

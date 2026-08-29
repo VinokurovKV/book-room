@@ -460,7 +460,7 @@ export function RoomPage() {
                   {!isScheduleLoading && scheduleBookings.map((booking) => (
                     <Box
                       key={booking.id}
-                      className="schedule-item schedule-item-busy"
+                      className={`schedule-item ${isHighlightedBooking(booking.title) ? 'schedule-item-highlighted' : 'schedule-item-busy'}`}
                       sx={getScheduleItemSx(booking.startsAt, booking.endsAt)}
                     >
                       {booking.title}
@@ -880,6 +880,14 @@ function getScheduleItemSx(startsAt: string, endsAt: string) {
 function getTimeMinutes(value: string) {
   const date = new Date(value);
   return date.getHours() * 60 + date.getMinutes();
+}
+
+function isHighlightedBooking(title: string) {
+  return [
+    'Ежедневная встреча команды',
+    'Собеседование с разработчиком',
+    'Ретроспектива команды',
+  ].includes(title);
 }
 
 function getDayStartIso(value: string) {

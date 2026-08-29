@@ -227,6 +227,14 @@ export function RoomsPage({
     }
   }
 
+  function applyStartTimeOnEnter(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      applyStartTime();
+      event.currentTarget.blur();
+    }
+  }
+
   return (
     <Box>
       <Box sx={{ backgroundColor: 'white', borderBottom: '1px solid #dce2ea' }}>
@@ -273,17 +281,24 @@ export function RoomsPage({
                 value={startTimeInput}
                 onChange={(event) => setStartTimeInput(event.target.value)}
                 onBlur={applyStartTime}
+                onKeyDown={applyStartTimeOnEnter}
                 disabled={!selectedOffice}
                 sx={{
                   width: '100%',
                   '& .MuiInputBase-root': { height: 40 },
                   '& input': { color: '#344054', fontSize: 16, fontWeight: 400, lineHeight: 1.5 },
+                  '& .MuiInputBase-root.Mui-disabled .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#e4e7ec',
+                  },
                 }}
                 inputProps={{ step: 900 }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <AccessTimeIcon fontSize="small" sx={{ color: '#344054' }} />
+                      <AccessTimeIcon
+                        fontSize="small"
+                        sx={{ color: selectedOffice ? '#344054' : '#98a2b3' }}
+                      />
                     </InputAdornment>
                   ),
                 }}
