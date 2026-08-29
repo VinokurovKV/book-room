@@ -21,8 +21,8 @@ import CheckIcon from '@mui/icons-material/Check';
 import GroupsIcon from '@mui/icons-material/Groups';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { getOffices, getRooms } from '../api/client';
-import type { Office, Room } from '../api/types';
+import { getOffices, getRoomBookings, getRooms } from '../api/client';
+import type { Booking, Office, Room } from '../api/types';
 import { DatePickerButton, getTodayDate } from '../components/DatePickerButton';
 
 const fallbackOffices: Office[] = [
@@ -57,6 +57,18 @@ const filterButtonSx = {
 
 type RoomsStatus = 'loading' | 'success' | 'error';
 
+const WS_URL = 'ws://localhost:3000/api/v1/ws';
+
+type RealtimeEvent = {
+  type: string;
+  data: {
+    booking?: Booking;
+    officeId?: string;
+    startsAt?: string;
+    endsAt?: string;
+  };
+};
+
 export function RoomsPage({
   onConnectionErrorChange,
 }: {
@@ -65,6 +77,7 @@ export function RoomsPage({
   const [searchParams, setSearchParams] = useSearchParams();
   const [offices, setOffices] = useState(fallbackOffices);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomBookings, setRoomBookings] = useState<Record<string, Booking[]>>({});
   const [roomsStatus, setRoomsStatus] = useState<RoomsStatus>('loading');
   const [officeId, setOfficeId] = useState(searchParams.get('officeId') || '');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -74,6 +87,7 @@ export function RoomsPage({
   const [capacity, setCapacity] = useState('4');
   const [durationAnchor, setDurationAnchor] = useState<null | HTMLElement>(null);
   const [capacityAnchor, setCapacityAnchor] = useState<null | HTMLElement>(null);
+  const [roomsReload, setRoomsReload] = useState(0);
 
   const officeIdFromUrl = searchParams.get('officeId') || '';
   const selectedOffice = offices.find((office) => office.id === officeId);
@@ -95,16 +109,18 @@ export function RoomsPage({
   useEffect(() => {
     if (!officeId) {
       setRooms([]);
+      setRoomBookings({});
       setRoomsStatus('success');
       onConnectionErrorChange(false);
       return;
     }
 
-    const startsAt = new Date(`${date}T${startTime}:00`);
-    const endsAt = new Date(startsAt.getTime() + Number(duration) * 60 * 1000);
+    const { startsAt, endsAt } = getSelectedInterval(date, startTime, duration);
+    let isActual = true;
 
     setRoomsStatus('loading');
     onConnectionErrorChange(false);
+    setRoomBookings({});
 
     getRooms({
       officeId,
@@ -112,16 +128,68 @@ export function RoomsPage({
       from: startsAt.toISOString(),
       to: endsAt.toISOString(),
     })
-      .then((loadedRooms) => {
+      .then(async (loadedRooms) => {
+        const bookingsByRoom: Record<string, Booking[]> = {};
+
+        await Promise.all(
+          loadedRooms.map((room) =>
+            getRoomBookings(room.id, getDayStartIso(date), getNextDayStartIso(date))
+              .then((bookings) => {
+                bookingsByRoom[room.id] = bookings;
+              })
+              .catch(() => {
+                bookingsByRoom[room.id] = [];
+              }),
+          ),
+        );
+
+        if (!isActual) {
+          return;
+        }
+
         setRooms(loadedRooms);
+        setRoomBookings(bookingsByRoom);
         setRoomsStatus('success');
       })
       .catch(() => {
-        setRooms([]);
-        setRoomsStatus('error');
-        onConnectionErrorChange(true);
+        if (isActual) {
+          setRooms([]);
+          setRoomBookings({});
+          setRoomsStatus('error');
+          onConnectionErrorChange(true);
+        }
       });
-  }, [capacity, date, duration, officeId, onConnectionErrorChange, startTime]);
+
+    return () => {
+      isActual = false;
+    };
+  }, [capacity, date, duration, officeId, onConnectionErrorChange, roomsReload, startTime]);
+
+  useEffect(() => {
+    if (!officeId) {
+      return;
+    }
+
+    const socket = new WebSocket(WS_URL);
+
+    socket.onmessage = (message) => {
+      let event: RealtimeEvent;
+
+      try {
+        event = JSON.parse(message.data) as RealtimeEvent;
+      } catch {
+        return;
+      }
+
+      if (shouldReloadRooms(event, officeId, date, startTime, duration)) {
+        setRoomsReload((value) => value + 1);
+      }
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [date, duration, officeId, startTime]);
 
   function selectOffice(nextOfficeId: string) {
     setOfficeId(nextOfficeId);
@@ -328,74 +396,14 @@ export function RoomsPage({
         {selectedOffice && roomsStatus === 'success' && rooms.length > 0 && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
             {rooms.map((room) => (
-              <Card key={room.id} sx={{ width: 360 }}>
-                <CardContent>
-                  <Typography variant="h5" fontWeight={700}>
-                    {room.name}
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ marginTop: 1, marginBottom: 2 }}>
-                    {room.floor} этаж
-                  </Typography>
-
-                  <Stack spacing={1}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <GroupsIcon fontSize="small" color="action" />
-                      <Typography color="text.secondary">
-                        Вместимость: до {room.capacity} человек
-                      </Typography>
-                    </Stack>
-
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <AccessTimeIcon fontSize="small" color="action" />
-                      <Typography color="text.secondary">
-                        {room.available ? 'Свободна на выбранное время' : 'Занята на выбранное время'}
-                      </Typography>
-                    </Stack>
-                  </Stack>
-
-                  <Box
-                    sx={{
-                      marginTop: 2,
-                      padding: 1.5,
-                      borderRadius: 1,
-                      backgroundColor: room.available ? '#c8f7ec' : '#e8edf3',
-                      color: room.available ? '#087f73' : '#667085',
-                      fontWeight: 700,
-                    }}
-                  >
-                    {room.available
-                      ? '• Доступно на выбранное время'
-                      : '• Недоступно на выбранное время'}
-                  </Box>
-
-                  <Stack direction="row" spacing={2} sx={{ marginTop: 2 }}>
-                    <Button
-                      fullWidth
-                      component={NavLink}
-                      to={`/rooms/${room.id}`}
-                      className="card-link-button"
-                    >
-                      Подробнее
-                    </Button>
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      disabled={!room.available}
-                      component={NavLink}
-                      to={`/rooms/${room.id}`}
-                      state={{
-                        openBooking: true,
-                        date,
-                        time: startTime,
-                        duration,
-                      }}
-                      className="card-book-button"
-                    >
-                      Забронировать
-                    </Button>
-                  </Stack>
-                </CardContent>
-              </Card>
+              <RoomCard
+                key={room.id}
+                room={room}
+                bookings={roomBookings[room.id] || []}
+                date={date}
+                startTime={startTime}
+                duration={duration}
+              />
             ))}
           </Box>
         )}
@@ -428,6 +436,91 @@ function NoOfficeState() {
   );
 }
 
+function RoomCard({
+  room,
+  bookings,
+  date,
+  startTime,
+  duration,
+}: {
+  room: Room;
+  bookings: Booking[];
+  date: string;
+  startTime: string;
+  duration: string;
+}) {
+  const availabilityText = getAvailabilityText(room, bookings, date, startTime, duration);
+
+  return (
+    <Card sx={{ width: 360 }}>
+      <CardContent>
+        <Typography variant="h5" fontWeight={700}>
+          {room.name}
+        </Typography>
+        <Typography color="text.secondary" sx={{ marginTop: 1, marginBottom: 2 }}>
+          {room.floor} этаж
+        </Typography>
+
+        <Stack spacing={1}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <GroupsIcon fontSize="small" color="action" />
+            <Typography color="text.secondary">
+              Вместимость: до {room.capacity} человек
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" spacing={1} alignItems="center">
+            <AccessTimeIcon fontSize="small" color="action" />
+            <Typography color="text.secondary">
+              {availabilityText}
+            </Typography>
+          </Stack>
+        </Stack>
+
+        <Box
+          sx={{
+            marginTop: 2,
+            padding: 1.5,
+            borderRadius: 1,
+            backgroundColor: room.available ? '#c8f7ec' : '#e8edf3',
+            color: room.available ? '#087f73' : '#667085',
+            fontWeight: 700,
+          }}
+        >
+          {room.available ? `• ${availabilityText}` : `• ${availabilityText}`}
+        </Box>
+
+        <Stack direction="row" spacing={2} sx={{ marginTop: 2 }}>
+          <Button
+            fullWidth
+            component={NavLink}
+            to={`/rooms/${room.id}`}
+            className="card-link-button"
+          >
+            Подробнее
+          </Button>
+          <Button
+            fullWidth
+            variant="contained"
+            disabled={!room.available}
+            component={NavLink}
+            to={`/rooms/${room.id}`}
+            state={{
+              openBooking: true,
+              date,
+              time: startTime,
+              duration,
+            }}
+            className="card-book-button"
+          >
+            Забронировать
+          </Button>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
 function getDurationLabel(value: string) {
   if (value === '15') return '15 мин';
   if (value === '30') return '30 мин';
@@ -445,6 +538,116 @@ function getCapacityButtonLabel(value: string) {
 
 function getCapacityMenuLabel(value: string) {
   return `${value} чел.`;
+}
+
+function getAvailabilityText(
+  room: Room,
+  bookings: Booking[],
+  date: string,
+  startTime: string,
+  duration: string,
+) {
+  const { startsAt, endsAt } = getSelectedInterval(date, startTime, duration);
+  const sortedBookings = [...bookings].sort(
+    (left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
+  );
+  const busyBooking = sortedBookings.find((booking) =>
+    intervalsOverlap(booking.startsAt, booking.endsAt, startsAt, endsAt),
+  );
+
+  if (busyBooking) {
+    return `Занята до ${formatTime(busyBooking.endsAt)}`;
+  }
+
+  const nextBooking = sortedBookings.find(
+    (booking) => new Date(booking.startsAt).getTime() > startsAt.getTime(),
+  );
+
+  if (room.available && nextBooking) {
+    return `Свободна до ${formatTime(nextBooking.startsAt)}`;
+  }
+
+  if (room.available) {
+    return 'Свободна весь день';
+  }
+
+  return 'Занята';
+}
+
+function getSelectedInterval(date: string, startTime: string, duration: string) {
+  const startsAt = new Date(`${date}T${startTime}:00`);
+  const endsAt = new Date(startsAt.getTime() + Number(duration) * 60 * 1000);
+
+  return { startsAt, endsAt };
+}
+
+function intervalsOverlap(
+  firstStart: string,
+  firstEnd: string,
+  secondStart: Date,
+  secondEnd: Date,
+) {
+  return new Date(firstStart).getTime() < secondEnd.getTime()
+    && new Date(firstEnd).getTime() > secondStart.getTime();
+}
+
+function getDayStartIso(value: string) {
+  return new Date(`${value}T00:00:00`).toISOString();
+}
+
+function getNextDayStartIso(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  date.setDate(date.getDate() + 1);
+  return date.toISOString();
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function shouldReloadRooms(
+  event: RealtimeEvent,
+  officeId: string,
+  date: string,
+  startTime: string,
+  duration: string,
+) {
+  if (event.type === 'data.reset') {
+    return true;
+  }
+
+  if (event.type === 'room.availability_changed') {
+    if (event.data.officeId !== officeId || !event.data.startsAt || !event.data.endsAt) {
+      return false;
+    }
+
+    const { startsAt, endsAt } = getSelectedInterval(date, startTime, duration);
+    return intervalsOverlap(event.data.startsAt, event.data.endsAt, startsAt, endsAt);
+  }
+
+  if (event.type === 'booking.created' || event.type === 'booking.cancelled') {
+    const booking = event.data.booking;
+
+    if (!booking || booking.office.id !== officeId) {
+      return false;
+    }
+
+    return isTimeInSelectedDay(booking.startsAt, booking.endsAt, date);
+  }
+
+  return false;
+}
+
+function isTimeInSelectedDay(startsAt: string, endsAt: string, date: string) {
+  const dayStart = new Date(getDayStartIso(date)).getTime();
+  const dayEnd = new Date(getNextDayStartIso(date)).getTime();
+  const bookingStart = new Date(startsAt).getTime();
+  const bookingEnd = new Date(endsAt).getTime();
+
+  return bookingStart < dayEnd && bookingEnd > dayStart;
 }
 
 function RoomSkeleton() {
