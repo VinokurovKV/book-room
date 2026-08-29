@@ -45,6 +45,6 @@ describe('App routing', () => {
 
     render(<App />);
 
-    expect(await screen.findByText('Ничего не найдено')).toBeInTheDocument();
+    expect(await screen.findByText('Страница не найдена')).toBeInTheDocument();
   });
 });
