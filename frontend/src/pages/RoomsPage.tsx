@@ -83,6 +83,7 @@ export function RoomsPage({
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [date, setDate] = useState(getTodayDate());
   const [startTime, setStartTime] = useState('15:00');
+  const [startTimeInput, setStartTimeInput] = useState('15:00');
   const [duration, setDuration] = useState('60');
   const [capacity, setCapacity] = useState('4');
   const [durationAnchor, setDurationAnchor] = useState<null | HTMLElement>(null);
@@ -200,8 +201,13 @@ export function RoomsPage({
   function resetFilters() {
     setDate(getTodayDate());
     setStartTime('15:00');
+    setStartTimeInput('15:00');
     setDuration('60');
     setCapacity('4');
+  }
+
+  function reloadRooms() {
+    setRoomsReload((value) => value + 1);
   }
 
   function selectDuration(nextDuration: string) {
@@ -212,6 +218,14 @@ export function RoomsPage({
   function selectCapacity(nextCapacity: string) {
     setCapacity(nextCapacity);
     setCapacityAnchor(null);
+  }
+
+  function applyStartTime() {
+    if (isValidTime(startTimeInput)) {
+      setStartTime(startTimeInput);
+    } else {
+      setStartTimeInput(startTime);
+    }
   }
 
   return (
@@ -257,8 +271,9 @@ export function RoomsPage({
               <TextField
                 size="small"
                 type="time"
-                value={startTime}
-                onChange={(event) => setStartTime(event.target.value)}
+                value={startTimeInput}
+                onChange={(event) => setStartTimeInput(event.target.value)}
+                onBlur={applyStartTime}
                 disabled={!selectedOffice}
                 sx={{
                   width: '100%',
@@ -387,7 +402,7 @@ export function RoomsPage({
           </Box>
         )}
 
-        {selectedOffice && roomsStatus === 'error' && <RoomsErrorState />}
+        {selectedOffice && roomsStatus === 'error' && <RoomsErrorState onReload={reloadRooms} />}
 
         {selectedOffice && roomsStatus === 'success' && rooms.length === 0 && (
           <RoomsEmptyState onReset={resetFilters} />
@@ -575,10 +590,15 @@ function getAvailabilityText(
 }
 
 function getSelectedInterval(date: string, startTime: string, duration: string) {
-  const startsAt = new Date(`${date}T${startTime}:00`);
+  const safeStartTime = isValidTime(startTime) ? startTime : '15:00';
+  const startsAt = new Date(`${date}T${safeStartTime}:00`);
   const endsAt = new Date(startsAt.getTime() + Number(duration) * 60 * 1000);
 
   return { startsAt, endsAt };
+}
+
+function isValidTime(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
 function intervalsOverlap(
@@ -689,7 +709,7 @@ function RoomsEmptyState({ onReset }: { onReset: () => void }) {
   );
 }
 
-function RoomsErrorState() {
+function RoomsErrorState({ onReload }: { onReload: () => void }) {
   return (
     <Stack alignItems="center" spacing={2} sx={{ paddingTop: 18, textAlign: 'center' }}>
       <Box className="error-state-icon">
@@ -701,7 +721,7 @@ function RoomsErrorState() {
       <Typography color="text.secondary">
         Произошла ошибка при загрузке списка переговорных
       </Typography>
-      <Button variant="contained" className="card-book-button">
+      <Button variant="contained" className="card-book-button" onClick={onReload}>
         Попробовать снова
       </Button>
     </Stack>

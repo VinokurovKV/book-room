@@ -156,7 +156,7 @@ export function BookingsPage() {
             ))}
           </Menu>
 
-          <DatePickerButton value={date} onChange={setDate} placeholder="За все время" />
+          <DatePickerButton value={date} onChange={setDate} placeholder="За все время" allowPast />
           {date && (
             <Button
               variant="outlined"
